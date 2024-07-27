@@ -66,8 +66,10 @@ class MainActivity : ComponentActivity() {
                 with(result.device) {
                     Timber.d("Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
                 }
-                scanResults.add(result)
-
+                // 같은 결과가 들어 가는 것을 방지
+                if(scanResults.indexOf(result) <  0) {
+                    scanResults.add(result)
+                }
             }
         }
 
