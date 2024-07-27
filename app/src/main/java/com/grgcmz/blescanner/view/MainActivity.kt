@@ -2,16 +2,42 @@ package com.grgcmz.blescanner.view
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothManager
-import android.bluetooth.le.*
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,8 +50,11 @@ import com.grgcmz.blescanner.view.composables.DeviceList
 import com.grgcmz.blescanner.view.composables.ScanButton
 import com.grgcmz.blescanner.view.theme.BLEScannerTheme
 import timber.log.Timber
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
+
+    val TAG = "MainActivity"
 
     // lazy load bluetoothAdapter and bluetoothManager
     private val bluetoothAdapter: BluetoothAdapter? by lazy(LazyThreadSafetyMode.NONE) {
@@ -64,7 +93,7 @@ class MainActivity : ComponentActivity() {
                 scanResults[indexQuery] = result
             } else {
                 with(result.device) {
-                    Timber.d("Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
+                    Timber.e("Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
                 }
                 // 같은 결과가 들어 가는 것을 방지
                 if(scanResults.indexOf(result) <  0) {
@@ -79,6 +108,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private lateinit var bleDevice: android.bluetooth.BluetoothDevice
+    private var bluetoothGatt: BluetoothGatt? = null
+
+    @SuppressLint("MissingPermission")
+    fun connect(deviceAddress: String) {
+        if (bluetoothAdapter == null || !bluetoothAdapter!!.isEnabled) {
+            Timber.e("Bluetooth is not enabled")
+            return
+        }
+
+        bleDevice = bluetoothAdapter!!.getRemoteDevice(deviceAddress)
+        bluetoothGatt = bleDevice.connectGatt(this@MainActivity, false, gattCallback)
+    }
+
+    private val gattCallback = object : BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
+        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            super.onConnectionStateChange(gatt, status, newState)
+            Timber.tag(TAG).d("Connection state changed: %s", newState)
+
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                Timber.e("Connected to device: %s", gatt.device.name)
+                gatt.discoverServices()
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Timber.e("Disconnected from device: %s", gatt.device.name)
+            }
+        }
+
+        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            super.onServicesDiscovered(gatt, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Timber.tag(TAG).i("Services discovered")
+
+                // 서비스 및 특성 접근 예시
+                val service = gatt.getService(UUID.fromString("0000180A-0000-1000-8000-00805F9B34FB"))
+                if (service != null) {
+                    val characteristic = service.getCharacteristic(UUID.fromString("00002A24-0000-1000-8000-00805F9B34FB"))
+                    if (characteristic != null) {
+                        // 특성 데이터 읽기, 쓰기 등을 수행
+                        // ...
+                        Timber.e("Services discovery returned: [${characteristic.value}]/${status}")
+                        Toast.makeText(this@MainActivity, "Services discovery returned: [${characteristic.value}]/${status}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Timber.e("Services discovery failed: %s", status)
+            }
+        }
+    }
+
     // On create function
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +168,7 @@ class MainActivity : ComponentActivity() {
             Timber.plant(Timber.DebugTree())
         }
 
-        Timber.d("Activity Created...")
+        Timber.e("Activity Created...")
 
         // Set the content to the ble scanner theme starting with the Scanning Screen
         setContent {
@@ -103,7 +182,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Timber.d("Content Set...")
+        Timber.e("Content Set...")
 
         try {
             entry()
@@ -170,7 +249,12 @@ class MainActivity : ComponentActivity() {
                                     .fillMaxWidth(),
 
                                 ) {
-                                DeviceList(scanResults)
+                                DeviceList(scanResults,
+                                    doConnect = { deviceModel ->
+                                        Timber.e("doConnect called, deviceModel: %s", deviceModel.address)
+                                        connect(deviceModel.address)
+                                    }
+                                )
                             }
                         }
                     }

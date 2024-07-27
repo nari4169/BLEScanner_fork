@@ -17,7 +17,10 @@ import com.grgcmz.blescanner.model.DeviceModel
  */
 @SuppressLint("MissingPermission")
 @Composable
-fun DeviceList(result: MutableList<ScanResult>) {
+fun DeviceList(
+    result: MutableList<ScanResult>,
+    doConnect: (deviceModel: DeviceModel) -> Unit
+) {
     LazyColumn (
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -30,7 +33,9 @@ fun DeviceList(result: MutableList<ScanResult>) {
                 advertiseFlags = result.scanRecord!!.advertiseFlags,
                 rawDataBytes = result.scanRecord!!.bytes,
                 parsedBytes = AdvParser().parseBytes(result.scanRecord!!.bytes, result.device.name ?: "Unknown"))
-            ExpandableDeviceCard(deviceModel = deviceModel)
+            ExpandableDeviceCard(deviceModel = deviceModel, doConnect = { deviceModel ->
+                doConnect(deviceModel)
+            })
         }
     }
 }

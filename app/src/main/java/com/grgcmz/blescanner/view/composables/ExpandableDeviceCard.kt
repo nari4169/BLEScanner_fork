@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +52,8 @@ import com.grgcmz.blescanner.model.ScanResultAdapter
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExpandableDeviceCard(
-    deviceModel: DeviceModel
+    deviceModel: DeviceModel,
+    doConnect: (deviceModel: DeviceModel) -> Unit
 ) {
     var expandedState by remember { mutableStateOf(false) }
     val rotationState by animateFloatAsState(
@@ -95,20 +97,25 @@ fun ExpandableDeviceCard(
                     verticalAlignment = Alignment.CenterVertically,
                     //horizontalArrangement = Arrangement.Center
                 ) {
-//                    Icon(
-//                        painter = painterResource(id = R.drawable.baseline_bluetooth_24),
-//                        contentDescription = "Bluetooth Icon"
-//
-//                    )
+
                     Text(
                         text = deviceModel.name,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    IconButton(
+                        onClick = {
+                            doConnect(deviceModel)
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_bluetooth_24),
+                            contentDescription = "Bluetooth Icon"
+                        )
+                    }
                 }
                 // Address and Bonding State
                 FlowColumn {
-
                     Text(
                         text = deviceModel.address,
                         style = MaterialTheme.typography.bodySmall
@@ -152,7 +159,10 @@ fun ExpandableDeviceCard(
                         text = "${pair.first}\nValue:  ${pair.second}",
                         style = MaterialTheme.typography.bodySmall
                     )
-                    Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface)
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
                 Text(
                     text = "RAW Data: ${deviceModel.rawDataBytes.toHex()}",
@@ -192,6 +202,9 @@ fun ExpandableCardPreview() {
             1,
             ByteArray(10),
             listOf(Pair("Manufacturer Specific Data", "0xabcdef"), Pair("Another", "0x123456"))
-        )
+        ),
+        doConnect = {
+
+        }
     )
 }
